@@ -108,9 +108,24 @@ target_include_directories(${PROJECT_NAME}
 # Makefile-like helper targets
 # ==============================
 
-# Extend built-in clean target to also remove output_files
+# Extend built-in clean target to also remove output_files and script test logs
+# (matching `make clean` behavior: rm -rf output_files, rm -f *_output)
+file(GLOB OUTPUT_LOG_FILES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/*_output"
+)
+
+set(CLEAN_EXTRA_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/output_files"
+        "${CMAKE_CURRENT_SOURCE_DIR}/valid_as_examples_output"
+        "${CMAKE_CURRENT_SOURCE_DIR}/pass1_errors_output"
+        "${CMAKE_CURRENT_SOURCE_DIR}/pass2_errors_output"
+        "${CMAKE_CURRENT_SOURCE_DIR}/prepro_errors_output"
+        ${OUTPUT_LOG_FILES}
+)
+list(REMOVE_DUPLICATES CLEAN_EXTRA_FILES)
+
 set_directory_properties(PROPERTIES
-        ADDITIONAL_CLEAN_FILES "${CMAKE_CURRENT_SOURCE_DIR}/output_files"
+        ADDITIONAL_CLEAN_FILES "${CLEAN_EXTRA_FILES}"
 )
 
 # Build test runner similarly to Makefile test target
