@@ -103,3 +103,63 @@ target_include_directories(${PROJECT_NAME}
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+# ==============================
+# Makefile-like helper targets
+# ==============================
+
+# Extend built-in clean target to also remove output_files
+set_directory_properties(PROPERTIES
+        ADDITIONAL_CLEAN_FILES "${CMAKE_CURRENT_SOURCE_DIR}/output_files"
+)
+
+# Build test runner similarly to Makefile test target
+set(LIB_SOURCES ${SOURCES})
+list(FILTER LIB_SOURCES EXCLUDE REGEX ".*/driver/main\\.c$")
+
+file(GLOB TEST_HELPER_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_helpers.c"
+)
+
+file(GLOB TEST_UNIT_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/*.c"
+)
+
+file(GLOB TEST_INT_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/*.c"
+)
+
+set(TEST_UNIT_LIB_SOURCES ${TEST_UNIT_SOURCES})
+list(FILTER TEST_UNIT_LIB_SOURCES EXCLUDE REGEX ".*/unit_tests_main\\.c$")
+
+set(TEST_INT_LIB_SOURCES ${TEST_INT_SOURCES})
+list(FILTER TEST_INT_LIB_SOURCES EXCLUDE REGEX ".*/integration_tests_main\\.c$")
+
+add_executable(test_runner
+        ${LIB_SOURCES}
+        ${TEST_HELPER_SOURCES}
+        ${TEST_UNIT_LIB_SOURCES}
+        ${TEST_INT_LIB_SOURCES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_runner_main.c
+)
+
+target_include_directories(test_runner
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+# Run automated tests: cmake --build <build_dir> --target test
+add_custom_target(test
+        DEPENDS test_runner
+        COMMAND $<TARGET_FILE:test_runner>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Running test runner"
+)
+
+# Show generated output files: cmake --build <build_dir> --target show-output
+add_custom_target(show-output
+        COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/scripts/show_output_files.sh"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Showing generated output files (.ob, .ent, .ext)"
+)
