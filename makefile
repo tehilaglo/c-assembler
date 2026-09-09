@@ -125,10 +125,10 @@ test-integration: $(TEST_INT_RUNNER)
 # Cleanup and rebuild
 # ==============================
 
-# Remove compiled objects and executable
+# Remove compiled objects and output files
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
-	rm -rf output_files
+	rm -rf $(BUILD_DIR) $(TARGET) $(TEST_RUNNER) $(TEST_UNIT_RUNNER) $(TEST_INT_RUNNER) output_files
+	rm -f *_output
 
 # Rebuild project from scratch
 rebuild: clean all
