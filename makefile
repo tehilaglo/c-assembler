@@ -19,6 +19,7 @@ BUILD_DIR := build
 # -g            → include debug symbols (for gdb / lldb)
 # -Iinclude     → add "include" directory to header search path
 CFLAGS := -std=c99 -Wall -Wextra -Wpedantic -g -Iinclude
+TEST_CFLAGS := $(CFLAGS) -Itests
 
 
 # ==============================
@@ -35,9 +36,31 @@ SRCS := $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
 # Example: parser/file.c → build/parser/file.o
 OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS))
 
+# Objects needed for linking tests (excluding driver/main.o)
+LIB_OBJS := $(filter-out $(BUILD_DIR)/driver/main.o,$(OBJS))
+
 # Dependency files generated automatically by the compiler
 # (.d files track header dependencies)
 DEPS := $(OBJS:.o=.d)
+
+# Test sources and objects
+TEST_HELPER_SRCS := tests/test_helpers.c
+TEST_HELPER_OBJS := $(BUILD_DIR)/tests/test_helpers.o
+
+TEST_UNIT_SRCS := $(wildcard tests/unit/*.c)
+TEST_UNIT_OBJS := $(patsubst tests/unit/%.c,$(BUILD_DIR)/tests/unit/%.o,$(TEST_UNIT_SRCS))
+TEST_UNIT_LIB_OBJS := $(filter-out $(BUILD_DIR)/tests/unit/unit_tests_main.o,$(TEST_UNIT_OBJS))
+
+TEST_INT_SRCS := $(wildcard tests/integration/*.c)
+TEST_INT_OBJS := $(patsubst tests/integration/%.c,$(BUILD_DIR)/tests/integration/%.o,$(TEST_INT_SRCS))
+TEST_INT_LIB_OBJS := $(filter-out $(BUILD_DIR)/tests/integration/integration_tests_main.o,$(TEST_INT_OBJS))
+
+TEST_RUNNER_MAIN_OBJ := $(BUILD_DIR)/tests/test_runner_main.o
+
+# Test runner executables
+TEST_RUNNER := $(BUILD_DIR)/test_runner
+TEST_UNIT_RUNNER := $(BUILD_DIR)/test_unit
+TEST_INT_RUNNER := $(BUILD_DIR)/test_integration
 
 
 # ==============================
@@ -45,7 +68,7 @@ DEPS := $(OBJS:.o=.d)
 # ==============================
 
 # Phony targets do not correspond to actual files
-.PHONY: all clean rebuild run
+.PHONY: all clean rebuild run test test-unit test-integration
 
 # Default target executed when running `make`
 all: $(TARGET)
@@ -54,6 +77,11 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@
 
+# Compile test files into object files
+$(BUILD_DIR)/tests/%.o: tests/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(TEST_CFLAGS) -MMD -MP -c $< -o $@
+
 # Compile each .c file into an object file
 # $< = first dependency (source file)
 # $@ = target file (object file)
@@ -61,9 +89,36 @@ $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)       # create directory if it doesn't exist
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
+# Test executables
+$(TEST_RUNNER): $(LIB_OBJS) $(TEST_HELPER_OBJS) $(TEST_UNIT_LIB_OBJS) $(TEST_INT_LIB_OBJS) $(TEST_RUNNER_MAIN_OBJ)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@
+
+$(TEST_UNIT_RUNNER): $(LIB_OBJS) $(TEST_HELPER_OBJS) $(TEST_UNIT_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@
+
+$(TEST_INT_RUNNER): $(LIB_OBJS) $(TEST_HELPER_OBJS) $(TEST_INT_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@
+
+# Run automated tests
+test: $(TEST_RUNNER)
+	./$(TEST_RUNNER)
+
+test-unit: $(TEST_UNIT_RUNNER)
+	./$(TEST_UNIT_RUNNER)
+
+test-integration: $(TEST_INT_RUNNER)
+	./$(TEST_INT_RUNNER)
+
 # Include automatically generated dependency files
 # This ensures files are rebuilt when headers change
 -include $(DEPS)
+-include $(TEST_HELPER_OBJS:.o=.d)
+-include $(TEST_UNIT_OBJS:.o=.d)
+-include $(TEST_INT_OBJS:.o=.d)
+-include $(TEST_RUNNER_MAIN_OBJ:.o=.d)
 
 
 # ==============================
